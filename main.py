@@ -117,20 +117,37 @@ class Dataset(object):
         return self.__central_tendency["q3"]
 
     def iqr(self):
-        """Calculate the interquartile range of the data."""
+        """Calculate the interquartile range of the data.
+
+        The interquartile range equals the third quarter's median minus the first quarter's.
+        """
+
         if "iqr" not in self.__central_tendency:
-            # The interquartile range equals the third quarter's median minus the first one's.
             self.__central_tendency["iqr"] = self.q3()-self.q1()
 
         return self.__central_tendency["iqr"]
 
     def range(self):
-        """Calculate the range of the data set."""
+        """Calculate the range of the data set.
+
+        The range equals the highest number minus the smallest number of the data set.
+        """
+
         if "range" not in self.__spread:
-            # The range equals the highest number minus the smallest number of the data set.
             self.__spread["range"] = max(self.__data) - min(self.__data)
 
         return self.__spread["range"]
+
+    def mid_range(self):
+        """Calculate the mid-range of the data set.
+
+        The mid-range equals the mean of the highest number plus the smallest number of the data set.
+        """
+
+        if "mid-range" not in self.__spread:
+            self.__central_tendency["mid-range"] = (max(self.__data) + min(self.__data)) / 2
+
+        return self.__central_tendency["mid-range"]
 
     def variance(self):
         """Calculate the population variance σ² of the data set."""
@@ -147,18 +164,24 @@ class Dataset(object):
         return self.__spread["variance"]
 
     def standard_deviation(self):
-        """Calculate the population variance σ of the data set."""
+        """Calculate the population variance σ of the data set.
+
+        Standard deviation equals the square root of the variance.
+        """
+
         if "standard deviation" not in self.__spread:
-            # Standard deviation equals the square root of the variance.
             self.__spread["standard deviation"] = math.sqrt(self.variance())
 
         return self.__spread["standard deviation"]
 
     def sample_variance(self):
-        """Calculate the unbiased sample variance s² of the data set as the sample of a population."""
+        """Calculate the unbiased sample variance s² of the data set as the sample of a population.
+
+        The sample variance is similar to the population variance but we divide by the number of data points
+        minus one to reduce the bias given from the sample not being representative of the whole population.
+        """
+
         if "sample variance" not in self.__spread:
-            # The sample variance is similar to the population variance but we divide by the number of data points...
-            # ...minus one to reduce the bias given from the sample not being representative of the whole population.
             sum_of_square_differences = 0
             for value in self.__data:
                 difference_from_mean = value - self.mean()
@@ -169,9 +192,67 @@ class Dataset(object):
         return self.__spread["sample variance"]
 
     def sample_standard_deviation(self):
-        """Calculate the sample standard deviation s of the data set as the sample of a population."""
+        """Calculate the sample standard deviation s of the data set as the sample of a population.
+
+        The standard deviation of a sample of the population is the square root of the sample variance.
+        """
+
         if "sample standard deviation" not in self.__spread:
-            # The standard deviation of a sample of the population is the square root of the sample variance.
             self.__spread["sample standard deviation"] = math.sqrt(self.sample_variance())
 
         return self.__spread["sample standard deviation"]
+
+    def mad(self):
+        """Calculate the mean absolute deviation MAD of the data set."""
+        if "mad" not in self.__spread:
+            sum_of_distances_from_mean = 0
+            for value in self.__data:
+                # Sum together the absolute deviation of each data point from the mean.
+                sum_of_distances_from_mean += abs(value - self.mean())
+
+            # Divide by the number of data points to get the mean absolute deviation.
+            self.__spread["mad"] = sum_of_distances_from_mean / len(self.__data)
+
+        return self.__spread["mad"]
+
+    def is_skewed(self):
+        """Evaluate whether the distribution of the data set is skewed and in what direction.
+
+        A distribution whose mean is equal to the median is normally distributed.
+        A distribution whose mean is smaller than the median is left-skewed.
+        A distribution whose mean is larger than the median is right-skewed.
+
+        :return: -1 for a left skew, 0 for no skew and 1 for a right skew.
+        """
+
+        skew = 0
+
+        if self.mean() < self.median():
+            skew -= 1
+        elif self.mean() > self.median():
+            skew += 1
+
+        return skew
+
+    def is_outlier(self, item):
+        """Evaluate whether an item is considered an outlier of the dataset according to the IQR*1.5 rule.
+
+        If the given item is not a member of the data set, it is evaluated as if it were.
+        According to the IQR*1.5 rule, a value is considered an outlier if it is lower than q1-iqr*1.5 or
+        higher than q3+iqr*1.5.
+        """
+
+        iqr_rule = self.iqr()*1.5
+
+        return item < (self.q1() - iqr_rule) or item > (self.q3() + iqr_rule)
+
+    def z_score(self, item):
+        """Calculate the z-score of a given item in the data set.
+
+        If the given item is not a member of the data set, it is evaluated as if it were.
+        The z-score equals the amount of standard deviations away from the mean the item lies at.
+        A positive score indicates a number above average, and vice-versa.
+        The bigger the absolute z-score, the more unusual the data point is.
+        """
+
+        return (item - self.mean()) / self.standard_deviation()
