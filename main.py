@@ -2,29 +2,25 @@ import collections
 import math
 
 
-class Dataset(object):
+class Dataset(collections.UserList):
     """A set of data points."""
     def __init__(self, *args):
         """Accepts a list of numbers as data."""
-        self.__data = [arg for arg in args]
+        super().__init__(args)
 
         # Create dictionaries to cache results to improve performance if values are requested multiple times.
         self.__central_tendency = dict()
         self.__spread = dict()
 
-    def data(self):
-        """Return the data set."""
-        return self.__data
-
     def sorted_data(self):
         """Return the data set, sorted."""
-        return sorted(self.__data)
+        return sorted(self)
 
     def mean(self):
         """Calculate the population mean µ of the data set."""
         if "mean" not in self.__central_tendency:
             # Sum the data points together and divide by the amount of data points.
-            self.__central_tendency["mean"] = sum(self.__data) / len(self.__data)
+            self.__central_tendency["mean"] = sum(self) / len(self)
 
         return self.__central_tendency["mean"]
 
@@ -51,7 +47,7 @@ class Dataset(object):
         :return: a list of most occurring numbers or an empty list if no mode is present.
         """
 
-        counter = collections.Counter(self.__data)  # Count how many times each discrete number occurs.
+        counter = collections.Counter(self)  # Count how many times each discrete number occurs.
 
         top_occurrence = None
         most_occurring = []
@@ -65,7 +61,7 @@ class Dataset(object):
                 # If the item we're iterating on has the same number of occurrences as our top item(s), add it to them.
                 most_occurring.append(item)
 
-        if set(most_occurring) == set(self.__data):
+        if set(most_occurring) == set(self):
             # If our set of most occurring items equals our whole data set, there is no mode.
             return []
 
@@ -134,7 +130,7 @@ class Dataset(object):
         """
 
         if "range" not in self.__spread:
-            self.__spread["range"] = max(self.__data) - min(self.__data)
+            self.__spread["range"] = max(self) - min(self)
 
         return self.__spread["range"]
 
@@ -145,7 +141,7 @@ class Dataset(object):
         """
 
         if "mid-range" not in self.__spread:
-            self.__central_tendency["mid-range"] = (max(self.__data) + min(self.__data)) / 2
+            self.__central_tendency["mid-range"] = (max(self) + min(self)) / 2
 
         return self.__central_tendency["mid-range"]
 
@@ -153,13 +149,13 @@ class Dataset(object):
         """Calculate the population variance σ² of the data set."""
         if "variance" not in self.__spread:
             sum_of_square_differences = 0
-            for value in self.__data:
+            for value in self:
                 # Sum together the squared difference of each data point from the mean.
                 difference_from_mean = value - self.mean()
                 sum_of_square_differences += difference_from_mean**2
 
             # Divide by the number of data points to get the variance.
-            self.__spread["variance"] = sum_of_square_differences / len(self.__data)
+            self.__spread["variance"] = sum_of_square_differences / len(self)
 
         return self.__spread["variance"]
 
@@ -183,11 +179,11 @@ class Dataset(object):
 
         if "sample variance" not in self.__spread:
             sum_of_square_differences = 0
-            for value in self.__data:
+            for value in self:
                 difference_from_mean = value - self.mean()
                 sum_of_square_differences += difference_from_mean**2
 
-            self.__spread["sample variance"] = sum_of_square_differences / (len(self.__data)-1)
+            self.__spread["sample variance"] = sum_of_square_differences / (len(self)-1)
 
         return self.__spread["sample variance"]
 
@@ -206,16 +202,16 @@ class Dataset(object):
         """Calculate the mean absolute deviation MAD of the data set."""
         if "mad" not in self.__spread:
             sum_of_distances_from_mean = 0
-            for value in self.__data:
+            for value in self:
                 # Sum together the absolute deviation of each data point from the mean.
                 sum_of_distances_from_mean += abs(value - self.mean())
 
             # Divide by the number of data points to get the mean absolute deviation.
-            self.__spread["mad"] = sum_of_distances_from_mean / len(self.__data)
+            self.__spread["mad"] = sum_of_distances_from_mean / len(self)
 
         return self.__spread["mad"]
 
-    def is_skewed(self):
+    def is_skewed(self) -> int:
         """Evaluate whether the distribution of the data set is skewed and in what direction.
 
         A distribution whose mean is equal to the median is normally distributed.
@@ -234,7 +230,7 @@ class Dataset(object):
 
         return skew
 
-    def is_outlier(self, item):
+    def is_outlier(self, item) -> bool:
         """Evaluate whether an item is considered an outlier of the dataset according to the IQR*1.5 rule.
 
         If the given item is not a member of the data set, it is evaluated as if it were.
@@ -246,13 +242,41 @@ class Dataset(object):
 
         return item < (self.q1() - iqr_rule) or item > (self.q3() + iqr_rule)
 
-    def z_score(self, item):
+    def z_score(self, item) -> float:
         """Calculate the z-score of a given item in the data set.
 
         If the given item is not a member of the data set, it is evaluated as if it were.
+
         The z-score equals the amount of standard deviations away from the mean the item lies at.
         A positive score indicates a number above average, and vice-versa.
         The bigger the absolute z-score, the more unusual the data point is.
         """
 
         return (item - self.mean()) / self.standard_deviation()
+
+    def correlation_coefficient(self, other: Dataset) -> float:
+        """Calculate the correlation coefficient r comparing the dataset to another dataset.
+
+        If the datasets presented are of unequal size, the calculation is limited to the size of the smallest one.
+
+        r is the product between the reciprocal of the number of data tuples minus one and the sum of the product
+        between the numbers of standard deviations of each dataset.
+        """
+
+        if not isinstance(other, Dataset):
+            raise TypeError("You can only compare a Dataset with a Dataset.")
+
+        # Find the size of the smallest iterable.
+        comparison_size = min(len(self), len(other))
+
+        # If the minimum size is 1 we have no way of calculating r, so we return 0 immediately to dodge division by 0.
+        if comparison_size <= 1:
+            return 0
+
+        reciprocal = 1 / comparison_size-1
+
+        sigma = 0  # Holds the sum of the following operations.
+        for index in range(comparison_size):
+            sigma += self.z_score(self[index]) * other.z_score(other[index])
+
+        return reciprocal * sigma

@@ -12,7 +12,7 @@ def test_that(dataset, tests: dict):
     for call, expected in tests.items():
         if not getattr(dataset, call)() == expected:
             print("TEST FAILED on data set:\n\t\t" + retrieve_name(dataset)[0] +
-                  "\nSet:\t\t" + str(dataset.data()) +
+                  "\nSet:\t\t" + str(dataset) +
                   "\nTest:\t\t" + call +
                   "\nOutput:\t\t" + str(getattr(dataset, call)()) +
                   "\nExpected:\t" + str(expected))
